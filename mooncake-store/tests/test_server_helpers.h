@@ -38,6 +38,10 @@ class InProcMaster {
             http_metadata_port_ = config.http_metadata_port.has_value()
                                       ? config.http_metadata_port.value()
                                       : getFreeTcpPort();
+            // Use configured rpc_address or default to "0.0.0.0"
+            rpc_address_ = config.rpc_address.has_value()
+                               ? config.rpc_address.value()
+                               : "0.0.0.0";
 
             // Optional HTTP metadata server
             if (http_metadata_port_ > 0) {
@@ -50,7 +54,7 @@ class InProcMaster {
 
             // RPC server + master service
             server_ = std::make_unique<coro_rpc::coro_rpc_server>(
-                /*thread_num=*/4, /*port=*/rpc_port_, /*address=*/"0.0.0.0",
+                /*thread_num=*/4, /*port=*/rpc_port_, /*address=*/rpc_address_,
                 std::chrono::seconds(0), /*tcp_no_delay=*/true);
             const char* value = std::getenv("MC_RPC_PROTOCOL");
             if (value && std::string_view(value) == "rdma") {
@@ -116,8 +120,28 @@ class InProcMaster {
     int rpc_port() const { return rpc_port_; }
     int http_metrics_port() const { return http_metrics_port_; }
     int http_metadata_port() const { return http_metadata_port_; }
+    std::string rpc_address() const { return rpc_address_; }
     std::string master_address() const {
-        return std::string("127.0.0.1:") + std::to_string(rpc_port_);
+        // For IPv6 wildcard ("::" or "::1"), return loopback address in
+        // bracket notation
+        if (rpc_address_ == "::" || rpc_address_.find(':') != std::string::npos) {
+            // IPv6 address - use loopback [::1] for wildcard, or wrap address
+            // in brackets
+            if (rpc_address_ == "::") {
+                return std::string("[::1]:") + std::to_string(rpc_port_);
+            }
+            // Already an IPv6 address, wrap in brackets if not already wrapped
+            if (rpc_address_.front() == '[') {
+                return rpc_address_ + ":" + std::to_string(rpc_port_);
+            }
+            return std::string("[") + rpc_address_ + "]:" +
+                   std::to_string(rpc_port_);
+        }
+        // IPv4 address - use 127.0.0.1 for wildcard
+        if (rpc_address_ == "0.0.0.0") {
+            return std::string("127.0.0.1:") + std::to_string(rpc_port_);
+        }
+        return rpc_address_ + ":" + std::to_string(rpc_port_);
     }
     std::string metadata_url() const {
         if (http_metadata_port_ <= 0) return {};
@@ -136,6 +160,7 @@ class InProcMaster {
     int rpc_port_ = 0;
     int http_metrics_port_ = 0;
     int http_metadata_port_ = 0;
+    std::string rpc_address_ = "0.0.0.0";
 };
 
 // Helper: return all segments body or error

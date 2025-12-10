@@ -67,18 +67,24 @@ class RealClientTest : public ::testing::Test {
 
 // Test basic Put and Get operations
 TEST_F(RealClientTest, BasicPutGetOperations) {
-    // Start in-proc master
-    ASSERT_TRUE(master_.Start(InProcMasterConfigBuilder().build()))
+    // Start in-proc master with IPv6 support if MC_USE_IPV6 is set
+    auto config_builder = InProcMasterConfigBuilder();
+    if (getenv("MC_USE_IPV6")) {
+        config_builder.set_rpc_address("::");
+    }
+    ASSERT_TRUE(master_.Start(config_builder.build()))
         << "Failed to start in-proc master";
     master_address_ = master_.master_address();
     LOG(INFO) << "Started in-proc master at " << master_address_;
 
-    // Setup the client
+    // Setup the client - use IPv6 loopback if MC_USE_IPV6 is set
+    const std::string local_hostname =
+        getenv("MC_USE_IPV6") ? "[::1]:17813" : "localhost:17813";
     const std::string rdma_devices = (FLAGS_protocol == std::string("rdma"))
                                          ? FLAGS_device_name
                                          : std::string("");
     ASSERT_EQ(
-        py_client_->setup_real("localhost:17813", "P2PHANDSHAKE",
+        py_client_->setup_real(local_hostname, "P2PHANDSHAKE",
                                16 * 1024 * 1024, 16 * 1024 * 1024,
                                FLAGS_protocol, rdma_devices, master_address_),
         0);

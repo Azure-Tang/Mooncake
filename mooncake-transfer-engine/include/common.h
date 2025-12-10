@@ -169,8 +169,14 @@ static inline std::pair<std::string, uint16_t> parseHostNameWithPort(
         std::string potentialHost =
             server_name.substr(1, closing_bracket_pos - 1);
         if (isValidIpV6(potentialHost)) {
-            return {std::move(potentialHost),
-                    getPortFromString(server_name.substr(colon_pos + 1), port)};
+            // Check if there's a port after the closing bracket
+            if (colon_pos != server_name.npos) {
+                return {std::move(potentialHost),
+                        getPortFromString(server_name.substr(colon_pos + 1),
+                                          port)};
+            }
+            // No port specified, use default
+            return {std::move(potentialHost), port};
         }
         // Not valid ipv6, fallback to ipv4/host/etc mode
     } else if (isValidIpV6(server_name)) {

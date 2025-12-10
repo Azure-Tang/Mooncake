@@ -441,6 +441,7 @@ struct InProcMasterConfig {
     std::optional<int> http_metrics_port;
     std::optional<int> http_metadata_port;
     std::optional<uint64_t> default_kv_lease_ttl;
+    std::optional<std::string> rpc_address;  // e.g., "0.0.0.0" or "::" for IPv6
 };
 
 // Builder class for InProcMasterConfig
@@ -450,6 +451,7 @@ class InProcMasterConfigBuilder {
     std::optional<int> http_metrics_port_ = std::nullopt;
     std::optional<int> http_metadata_port_ = std::nullopt;
     std::optional<uint64_t> default_kv_lease_ttl_ = std::nullopt;
+    std::optional<std::string> rpc_address_ = std::nullopt;
 
    public:
     InProcMasterConfigBuilder() = default;
@@ -474,6 +476,11 @@ class InProcMasterConfigBuilder {
         return *this;
     }
 
+    InProcMasterConfigBuilder& set_rpc_address(const std::string& address) {
+        rpc_address_ = address;
+        return *this;
+    }
+
     InProcMasterConfig build() const;
 };
 
@@ -484,6 +491,7 @@ inline InProcMasterConfig InProcMasterConfigBuilder::build() const {
     config.http_metrics_port = http_metrics_port_;
     config.http_metadata_port = http_metadata_port_;
     config.default_kv_lease_ttl = default_kv_lease_ttl_;
+    config.rpc_address = rpc_address_;
     return config;
 }
 
